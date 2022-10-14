@@ -257,21 +257,25 @@ exports.deleteRoom = async (req, res) => {
 
   Room.findById(roomId, (err, roomData) => {
     if (!roomData) return res.status(401).send({ message: "Room not found" });
-    
-    Message.find(roomId, (err, messageData) => {
+
+    Message.find({ roomId: roomId }, (err, messageData) => {
       roomData.remove();
+      let count = messageData.length;
       messageData.map((message) => {
+        count -= 1;
         message.remove();
+        if (count === 0) {
+          return res.status(200).json(roomId);
+        }
       });
     });
-    return res.status(200).json({ message: "Room deleted successfully" });
   });
 };
 
 exports.getMessages = (req, res) => {
   const { roomId } = req.query;
 
-  Message.find(roomId, (err, messageData) => {
+  Message.find({ roomId: roomId }, (err, messageData) => {
     if (!messageData) return res.status(401).send({ message: "No messages" });
 
     return res.status(200).json(messageData);
