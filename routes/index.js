@@ -15,7 +15,11 @@ module.exports = (app) => {
   router.get("/find-user", verifyReqToken, controller.findUser);
   router.get("/get-messages", verifyReqToken, controller.getMessages);
 
-  router.delete("/delete-room", verifyReqToken, controller.deleteRoom);
+  // router.post("/action-room/0", verifyReqToken, controller.pinRoom);
+  router.post("/action-room/1", verifyReqToken, controller.deleteRoom);
+  // router.post("/action-room/2", verifyReqToken, controller.muteRoom);
+  // router.post("/action-room/3", verifyReqToken, controller.blockRoom);
+  // router.post("/action-room/4", verifyReqToken, controller.leaveRoom);
 
   app.use("/api", router);
 };
