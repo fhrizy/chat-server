@@ -6,7 +6,7 @@ const app = express();
 const http = require("http");
 const server = http.createServer(app);
 
-const port = process.env.PORT;
+const port = process.env.PORT || 2022;
 
 var corsOptions = {
   origin: "*",
