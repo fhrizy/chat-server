@@ -6,9 +6,7 @@ const app = express();
 const http = require("http");
 const server = http.createServer(app);
 
-const host = process.env.HOST;
-const port = parseInt(process.env.PORT);
-const address = `http://${host}:${port}`;
+const port = process.env.PORT;
 
 var corsOptions = {
   origin: "*",
@@ -20,8 +18,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 require("./routes")(app);
 
-server.listen(port, host, () => {
-  console.log(`server is running on port ${address}`);
+server.listen(port, () => {
+  console.log(`server is running on port ${port}`);
 });
 
 const db = require("./models");
