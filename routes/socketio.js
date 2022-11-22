@@ -62,13 +62,19 @@ module.exports = (io) => {
               name: userData.name,
               username: userData.username,
               message: data.message,
+              readBy: [],
+              starStatus: 0,
               timeSend: data.timeSend,
               timeReceived: today,
             },
           });
           await message.save();
+          userData.messages.push(message);
+          await userData.save();
           const targetId = roomData.members.filter((member) => member !== user);
-          User.findById(targetId, (err, targetData) => {
+          User.findById(targetId, async (err, targetData) => {
+            targetData.messages.push(message);
+            await targetData.save();
             let updateRoom = {
               id: roomData._id,
               active: roomData.active,

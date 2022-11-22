@@ -4,6 +4,8 @@ module.exports = (mongoose) => {
         active: Boolean,
         name: String,
         type: String,
+        pinStatus: String,
+        muteStatus: String,
         members: Array,
       },
       { timestamps: true }

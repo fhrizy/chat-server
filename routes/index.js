@@ -13,7 +13,7 @@ module.exports = (app) => {
   router.get("/get-contacts", controller.getContacts);
   router.get("/get-rooms", controller.getRooms);
   router.get("/find-user", verifyReqToken, controller.findUser);
-  router.get("/get-messages", verifyReqToken, controller.getMessages);
+  router.get("/get-messages", controller.getMessages);
 
   // router.post("/action-room/0", verifyReqToken, controller.pinRoom);
   router.post("/action-room/1", verifyReqToken, controller.deleteRoom);
