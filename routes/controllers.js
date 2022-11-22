@@ -24,6 +24,7 @@ exports.signup = (req, res) => {
 
     user.hash = await bcrypt.hashSync(password, bcrypt.genSaltSync(saltRounds));
     user.contacts = [];
+    user.messages = [];
     User.create(user)
       .then((data) => {
         res.status(200).json({
@@ -78,10 +79,10 @@ exports.auth = async (req, res) => {
     const verify = await verifyToken(token);
     User.findById(verify.id, (err, data) => {
       return res.status(200).json({
-        name: data.name,
-        id: data._id,
-        username: data.username,
-        role: data.role,
+        name: data?.name,
+        id: data?._id,
+        username: data?.username,
+        role: data?.role,
         token: token,
       });
     });
@@ -123,7 +124,7 @@ exports.addContact = async (req, res) => {
       if (!targetData)
         return res.status(401).send({ message: "User not found" });
 
-      User.findById(verify.id, (err, userData) => {
+      User.findById(verify.id, async (err, userData) => {
         const newContact = {
           id: targetData._id,
           name: targetData.name,
@@ -137,7 +138,7 @@ exports.addContact = async (req, res) => {
           return res.status(401).send({ message: "Contact already exists" });
 
         userData.contacts.push(newContact);
-        userData.save();
+        await userData.save();
 
         return res.status(200).json({
           message: `Contact ${targetData.name} added successfully`,
@@ -215,10 +216,11 @@ exports.getRooms = async (req, res) => {
       const newRoom = [];
 
       roomData.map((room) => {
-        Message.find({ roomId: room.id }, (err, messageData) => {
+        User.findById(verify.id, (err, userData) => {
           let targetId = room.members.filter((member) => member !== verify.id);
+          let messages = userData?.messages?.filter((message) => message.roomId == room._id);
 
-          User.findById(targetId, (err, userData) => {
+          User.findById(targetId, (err, targetData) => {
             let getLastMessage = {
               id: room.id,
               active: room.active,
@@ -228,12 +230,12 @@ exports.getRooms = async (req, res) => {
             };
 
             if (room.name == "") {
-              getLastMessage.name = userData.name;
+              getLastMessage.name = targetData.name;
             }
 
-            if (messageData.length > 0) {
+            if (messages?.length > 0) {
               getLastMessage.lastMessage =
-                messageData[messageData.length - 1].messageContent;
+                messages[messages?.length - 1]?.messageContent;
             } else {
               getLastMessage.lastMessage = null;
             }
@@ -255,29 +257,35 @@ exports.getRooms = async (req, res) => {
 exports.deleteRoom = async (req, res) => {
   const { roomId } = req.body;
 
-  Room.findById(roomId, (err, roomData) => {
-    if (!roomData) return res.status(401).send({ message: "Room not found" });
+  try {
+    const verify = await verifyToken(token);
+    User.findById(verify.id, async (err, userData) => {
+      if (!userData) return res.status(401).send({ message: "User not found" });
 
-    Message.find({ roomId: roomId }, (err, messageData) => {
-      roomData.remove();
-      let count = messageData.length;
-      messageData.map((message) => {
-        count -= 1;
-        message.remove();
-        if (count === 0) {
-          return res.status(200).json(roomId);
-        }
-      });
+      const newMessages = userData.messages.filter((message) => message.roomId != roomId);
+      userData.messages = newMessages;
+      await userData.save();
+
+      return res.status(200).json({message: "Room deleted successfully"});
     });
-  });
+  } catch (err) {
+    return res.status(401).send({ message: "Invalid token" });
+  }
 };
 
-exports.getMessages = (req, res) => {
+exports.getMessages = async (req, res) => {
+  const token = req.headers.authorization;
   const { roomId } = req.query;
 
-  Message.find({ roomId: roomId }, (err, messageData) => {
-    if (!messageData) return res.status(401).send({ message: "No messages" });
+  try {
+    const verify = await verifyToken(token);
+    User.findById(verify.id, (err, userData) => {
+      if (!userData) return res.status(401).send({ message: "User not found" });
+      const messages = userData.messages.filter((message) => message.roomId == roomId);
 
-    return res.status(200).json(messageData);
-  });
+      return res.status(200).json(messages);
+    });
+  } catch (err) {
+    return res.status(401).send({ message: "Invalid token" });
+  }
 };
