@@ -218,7 +218,9 @@ exports.getRooms = async (req, res) => {
       roomData.map((room) => {
         User.findById(verify.id, (err, userData) => {
           let targetId = room.members.filter((member) => member !== verify.id);
-          let messages = userData?.messages?.filter((message) => message.roomId == room._id);
+          let messages = userData?.messages?.filter(
+            (message) => message.roomId == room._id
+          );
 
           User.findById(targetId, (err, targetData) => {
             let getLastMessage = {
@@ -255,6 +257,7 @@ exports.getRooms = async (req, res) => {
 };
 
 exports.deleteRoom = async (req, res) => {
+  const token = req.headers.authorization;
   const { roomId } = req.body;
 
   try {
@@ -262,11 +265,13 @@ exports.deleteRoom = async (req, res) => {
     User.findById(verify.id, async (err, userData) => {
       if (!userData) return res.status(401).send({ message: "User not found" });
 
-      const newMessages = userData.messages.filter((message) => message.roomId != roomId);
+      const newMessages = userData.messages.filter(
+        (message) => message.roomId != roomId
+      );
       userData.messages = newMessages;
       await userData.save();
 
-      return res.status(200).json({message: "Room deleted successfully"});
+      return res.status(200).json({ message: "Room deleted successfully" });
     });
   } catch (err) {
     return res.status(401).send({ message: "Invalid token" });
@@ -281,9 +286,32 @@ exports.getMessages = async (req, res) => {
     const verify = await verifyToken(token);
     User.findById(verify.id, (err, userData) => {
       if (!userData) return res.status(401).send({ message: "User not found" });
-      const messages = userData.messages.filter((message) => message.roomId == roomId);
+      const messages = userData.messages.filter(
+        (message) => message.roomId == roomId
+      );
 
       return res.status(200).json(messages);
+    });
+  } catch (err) {
+    return res.status(401).send({ message: "Invalid token" });
+  }
+};
+
+exports.deleteMessage = async (req, res) => {
+  const token = req.headers.authorization;
+  const { messageId } = req.body;
+
+  try {
+    const verify = await verifyToken(token);
+    User.findById(verify.id, async (err, userData) => {
+      if (!userData) return res.status(401).send({ message: "User not found" });
+      const message = userData.messages.filter(
+        (message) => !messageId.includes(String(message._id))
+      );
+      userData.messages = message;
+      await userData.save();
+
+      return res.status(200).json({ message: "Message deleted successfully" });
     });
   } catch (err) {
     return res.status(401).send({ message: "Invalid token" });
