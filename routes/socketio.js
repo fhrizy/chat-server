@@ -62,7 +62,7 @@ module.exports = (io) => {
               name: userData.name,
               username: userData.username,
               message: data.message,
-              readBy: [user],
+              readBy: [],
               starStatus: 0,
               timeSend: data.timeSend,
               timeReceived: today,
@@ -88,50 +88,6 @@ module.exports = (io) => {
           });
         });
       });
-    });
-    socket.on(`readBy`, async (data) => {
-      const user = socket.user;
-      if (!user) return console.log("User not authorized");
-
-      const room = socket.room;
-      if (!room) return console.log("User not in room");
-
-      Room.findById(room, async (err, roomData) => {
-        const targetId = roomData.members.filter((member) => member !== user);
-        User.findById(user, async (err, userData) => {
-          const messages = userData.messages.filter((message) => message.roomId == room);
-          messages.map(async (message) => {
-            if (!message.messageContent.readBy.includes(user)) return;
-
-            message.messageContent.readBy.push(user);
-            await message.save();
-          })
-        });
-        User.findById(targetId, async (err, targetData) => {
-          const messages = targetData.messages.filter((message) => message.roomId == room);
-          messages.map(async (message) => {
-            if (!message.messageContent.readBy.includes(user)) return;
-
-            message.messageContent.readBy.push(user);
-            await message.save();
-          })
-        });
-        Message.find({ roomId: room }, async (err, messageData) => {
-          if (!messageData) return console.log("Message not found");
-          let count = messageData?.length;
-          messageData.map(async (message) => {
-            if (message.messageContent.readBy.includes(user)) return;
-            
-            message.messageContent.readBy.push(user);
-            await message.save();
-            io.sockets.in(room).emit(`update-message`, message);
-            count -= 1;
-            if (count === 0) {
-              io.sockets.emit(`update-room`, updateRoom);
-            }
-          });
-        });
-      })
     });
   });
 };
