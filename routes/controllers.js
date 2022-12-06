@@ -230,6 +230,8 @@ exports.getRooms = async (req, res) => {
               active: room.active,
               name: room.name,
               type: room.type,
+              pinStatus: room.pinStatus,
+              muteStatus: room.muteStatus,
               members: room.members,
             };
 
