@@ -184,6 +184,8 @@ exports.createRoom = async (req, res) => {
       active: true,
       name: newName,
       type: type,
+      pinStatus: 0,
+      muteStatus: 0,
       members: members,
     };
 
