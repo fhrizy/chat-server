@@ -13,13 +13,17 @@ module.exports = (app) => {
   router.get("/get-contacts", controller.getContacts);
   router.get("/get-rooms", controller.getRooms);
   router.get("/find-user", verifyReqToken, controller.findUser);
-  router.get("/get-messages", verifyReqToken, controller.getMessages);
+  router.get("/get-messages", controller.getMessages);
 
   // router.post("/action-room/0", verifyReqToken, controller.pinRoom);
-  router.post("/action-room/1", verifyReqToken, controller.deleteRoom);
+  router.post("/action-room/1", controller.deleteRoom);
   // router.post("/action-room/2", verifyReqToken, controller.muteRoom);
   // router.post("/action-room/3", verifyReqToken, controller.blockRoom);
   // router.post("/action-room/4", verifyReqToken, controller.leaveRoom);
+
+  router.post("/action-message/0", controller.deleteMessage);
+  // router.post("/action-message/1", verifyReqToken, controller.deleteMessageEveryone);
+  // router.post("/action-message/2", verifyReqToken, controller.startMessage);
 
   app.use("/api", router);
 };
