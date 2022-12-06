@@ -25,6 +25,7 @@ exports.signup = (req, res) => {
     user.hash = await bcrypt.hashSync(password, bcrypt.genSaltSync(saltRounds));
     user.contacts = [];
     user.messages = [];
+    user.rooms = [];
     User.create(user)
       .then((data) => {
         res.status(200).json({
