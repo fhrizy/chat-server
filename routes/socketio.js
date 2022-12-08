@@ -63,18 +63,21 @@ module.exports = (io) => {
               username: userData.username,
               message: data.message,
               readBy: [user],
-              starStatus: 0,
               timeSend: data.timeSend,
               timeReceived: today,
             },
           });
           await message.save();
-          userData.messages.push(message);
+
+          const propsMessage = { id: message._id, starStatus: 0 };
+          userData.messages.push(propsMessage);
           await userData.save();
+
           const targetId = roomData.members.filter((member) => member !== user);
           User.findById(targetId, async (err, targetData) => {
-            targetData.messages.push(message);
+            targetData.messages.push(propsMessage);
             await targetData.save();
+            
             let updateRoom = {
               id: roomData._id,
               active: roomData.active,
@@ -121,7 +124,7 @@ module.exports = (io) => {
     //       let count = messageData?.length;
     //       messageData.map(async (message) => {
     //         if (message.messageContent.readBy.includes(user)) return;
-            
+
     //         message.messageContent.readBy.push(user);
     //         await message.save();
     //         io.sockets.in(room).emit(`update-message`, message);
