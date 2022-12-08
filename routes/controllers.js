@@ -10,7 +10,7 @@ const { verifyToken } = require("../auth/auth-jwt");
 
 exports.signup = (req, res) => {
   const { name, username, password, passwordConf, role } = req.body;
-  const user = { name, username, role };
+  const user = new User({ name, username, role });
 
   if (!(name, username && password && passwordConf && role))
     return res.status(400).send({ message: "Data cannot be empty!" });
@@ -18,55 +18,48 @@ exports.signup = (req, res) => {
   if (password !== passwordConf)
     return res.status(400).send({ message: "Passwords do not match!" });
 
-  User.findOne({ username: username }, async (err, data) => {
-    if (data)
+  User.findOne({ username: username }, async (err, userData) => {
+    if (userData)
       return res.status(401).send({ message: "Username already exists" });
 
     user.hash = await bcrypt.hashSync(password, bcrypt.genSaltSync(saltRounds));
     user.contacts = [];
-    user.messages = [];
     user.rooms = [];
-    User.create(user)
-      .then((data) => {
-        res.status(200).json({
-          message: `User ${data.username} created successfully!`,
-        });
-      })
-      .catch((err) => {
-        res.status(500).send({
-          message: "Some error on server occurred while creating the user.",
-        });
-      });
+
+    await user.save();
+    return res.status(200).json({
+      message: `User ${user.username} created successfully!`,
+    });
   });
 };
 
 exports.signin = (req, res) => {
   const { username, password, role } = req.body;
+  const user = { username, password, role };
 
   if (!(username && password && role))
     return res.status(400).send({ message: "Data cannot be empty!" });
 
-  User.findOne({ username: username }, async (err, data) => {
-    if (!data) return res.status(401).send({ message: "User not found" });
+  User.findOne({ username: username }, async (err, userData) => {
+    if (!userData) return res.status(401).send({ message: "User not found" });
 
-    if (data.role !== role)
+    if (userData.role !== role)
       return res
         .status(401)
         .send({ message: "Please choose the correct role!" });
 
-    if (await bcrypt.compare(password, data.hash)) {
+    if (await bcrypt.compare(password, userData.hash)) {
       const token = jwt.sign(
-        { id: data._id, username: data.username, role: data.role },
+        { id: userData._id, username, role: userData.role },
         secret,
         { expiresIn: "1d" }
       );
-      return res.status(200).json({
-        name: data.name,
-        id: data._id,
-        username: data.username,
-        role: data.role,
-        token: token,
-      });
+
+      user.name = userData.name;
+      user.id = userData._id;
+      user.token = token;
+
+      return res.status(200).json(user);
     } else {
       res.status(401).send({ message: "Wrong password" });
     }
@@ -78,12 +71,12 @@ exports.auth = async (req, res) => {
 
   try {
     const verify = await verifyToken(token);
-    User.findById(verify.id, (err, data) => {
+    User.findById(verify.id, (err, userData) => {
       return res.status(200).json({
-        name: data?.name,
-        id: data?._id,
-        username: data?.username,
-        role: data?.role,
+        name: userData?.name,
+        id: userData?._id,
+        username: userData?.username,
+        role: userData?.role,
         token: token,
       });
     });
@@ -93,21 +86,21 @@ exports.auth = async (req, res) => {
 };
 
 exports.findUser = async (req, res) => {
-  const { username } = req.query;
   const token = req.headers.authorization;
+  const { username } = req.query;
 
   try {
     const verify = await verifyToken(token);
     if (username === verify.username)
       return res.status(401).send({ message: "Invalid Username!" });
 
-    User.findOne({ username: username }, (err, data) => {
-      if (!data) return res.status(401).send({ message: "User not found" });
+    User.findOne({ username: username }, (err, userData) => {
+      if (!userData) return res.status(401).send({ message: "User not found" });
       return res.status(200).json({
-        name: data.name,
-        id: data._id,
-        username: data.username,
-        role: data.role,
+        name: userData.name,
+        id: userData._id,
+        username: userData.username,
+        role: userData.role,
       });
     });
   } catch (err) {
@@ -116,8 +109,8 @@ exports.findUser = async (req, res) => {
 };
 
 exports.addContact = async (req, res) => {
-  const { targetId } = req.body;
   const token = req.headers.authorization;
+  const { targetId } = req.body;
 
   try {
     const verify = await verifyToken(token);
@@ -167,8 +160,8 @@ exports.getContacts = async (req, res) => {
 };
 
 exports.createRoom = async (req, res) => {
-  const { name, type, targetId } = req.body;
   const token = req.headers.authorization;
+  const { name, type, targetId } = req.body;
 
   try {
     const verify = await verifyToken(token);
@@ -181,27 +174,33 @@ exports.createRoom = async (req, res) => {
 
     const members = [verify.id, targetId].sort((a, b) => (a > b ? 1 : -1));
 
-    const newRoom = {
+    const newRoom = new Room({
       active: true,
       name: newName,
       type: type,
+      members: members,
+    });
+
+    const perUserRoom = {
+      id: newRoom._id,
       pinStatus: 0,
       muteStatus: 0,
-      members: members,
+      unread: 0,
     };
 
-    Room.findOne({ members: newRoom.members }, (err, data) => {
+    Room.findOne({ members: newRoom.members }, async (err, data) => {
       if (data) return res.status(200).send({ roomId: data._id });
+      User.findById(verify.id, async (err, userData) => {
+        userData.rooms.push(perUserRoom);
+        await userData.save();
+        User.findById(targetId, async (err, targetData) => {
+          targetData.rooms.push(perUserRoom);
+          await targetData.save();
 
-      Room.create(newRoom)
-        .then((data) => {
-          res.status(200).json({ roomId: data._id });
-        })
-        .catch((err) => {
-          res.status(500).send({
-            message: "Some error on server occurred while creating the room.",
-          });
+          await newRoom.save();
+          return res.status(200).json({ roomId: newRoom._id });
         });
+      });
     });
   } catch (err) {
     return res.status(401).send({ message: "Invalid token" });
@@ -221,8 +220,8 @@ exports.getRooms = async (req, res) => {
       roomData.map((room) => {
         User.findById(verify.id, (err, userData) => {
           let targetId = room.members.filter((member) => member !== verify.id);
-          let messages = userData?.messages?.filter(
-            (message) => message.roomId == room._id
+          let propsRoom = userData?.rooms?.filter(
+            ({ id }) => String(id) == String(room._id)
           );
 
           User.findById(targetId, (err, targetData) => {
@@ -231,27 +230,29 @@ exports.getRooms = async (req, res) => {
               active: room.active,
               name: room.name,
               type: room.type,
-              pinStatus: room.pinStatus,
-              muteStatus: room.muteStatus,
+              pinStatus: propsRoom[0]?.pinStatus,
+              muteStatus: propsRoom[0]?.muteStatus,
+              unread: propsRoom[0]?.unread,
               members: room.members,
             };
+            Message.find({ roomId: room._id }, (err, messageData) => {
+              if (room.name == "") {
+                getLastMessage.name = targetData.name;
+              }
 
-            if (room.name == "") {
-              getLastMessage.name = targetData.name;
-            }
+              if (messageData.length > 0) {
+                getLastMessage.lastMessage =
+                  messageData[messageData.length - 1]?.messageContent;
+              } else {
+                getLastMessage.lastMessage = null;
+              }
 
-            if (messages?.length > 0) {
-              getLastMessage.lastMessage =
-                messages[messages?.length - 1]?.messageContent;
-            } else {
-              getLastMessage.lastMessage = null;
-            }
+              newRoom.push(getLastMessage);
 
-            newRoom.push(getLastMessage);
-
-            if (newRoom.length === roomData.length) {
-              return res.status(200).json(newRoom);
-            }
+              if (newRoom.length === roomData.length) {
+                return res.status(200).json(newRoom);
+              }
+            });
           });
         });
       });
@@ -291,11 +292,25 @@ exports.getMessages = async (req, res) => {
     const verify = await verifyToken(token);
     User.findById(verify.id, (err, userData) => {
       if (!userData) return res.status(401).send({ message: "User not found" });
-      const messages = userData.messages.filter(
-        (message) => message.roomId == roomId
-      );
 
-      return res.status(200).json(messages);
+      Message.find({ roomId: roomId }, (err, messageData) => {
+        let messages = [];
+        userData.messages.map((message) => {
+          const filterMessage = messageData.filter(
+            ({ _id }) => String(_id) == String(message.id)
+          );
+          if (filterMessage[0]) {
+            filterMessage[0].messageContent.starStatus = message.starStatus;
+          }
+
+          if (String(message.id) == String(filterMessage[0]?._id)) {
+            messages.push(filterMessage[0]);
+          }
+        });
+        if (messages.length == messageData.length) {
+          return res.status(200).json(messages);
+        }
+      });
     });
   } catch (err) {
     return res.status(401).send({ message: "Invalid token" });
