@@ -47,6 +47,7 @@ exports.signin = (req, res) => {
 
   User.findOne({ username: username }, async (err, data) => {
     if (!data) return res.status(401).send({ message: "User not found" });
+    console.log("kocag")
 
     if (data.role !== role)
       return res
